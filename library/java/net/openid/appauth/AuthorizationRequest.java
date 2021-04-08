@@ -336,7 +336,7 @@ public class AuthorizationRequest extends AuthorizationManagementRequest {
      * This configuration specifies how to connect to a particular OAuth provider.
      * Configurations may be
      * {@link
-     * AuthorizationServiceConfiguration#AuthorizationServiceConfiguration(Uri, Uri, Uri, Uri)}
+     * AuthorizationServiceConfiguration#AuthorizationServiceConfiguration(Uri, Uri, Uri, Uri, Uri)}
      * created manually}, or {@link AuthorizationServiceConfiguration#fetchFromUrl(Uri,
      * AuthorizationServiceConfiguration.RetrieveConfigurationCallback)} via an OpenID Connect
      * Discovery Document}.
