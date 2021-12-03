@@ -33,6 +33,7 @@ import androidx.browser.customtabs.CustomTabsIntent;
 
 import net.openid.appauth.AuthorizationException.GeneralErrors;
 import net.openid.appauth.AuthorizationException.RegistrationRequestErrors;
+import net.openid.appauth.AuthorizationException.RevokeTokenRequestErrors;
 import net.openid.appauth.AuthorizationException.TokenRequestErrors;
 import net.openid.appauth.IdToken.IdTokenException;
 import net.openid.appauth.browser.BrowserDescriptor;
@@ -512,6 +513,34 @@ public class AuthorizationService {
     }
 
     /**
+     * Sends a request to the authorization service to revoke a token.
+     * The result of this request will be sent to the provided callback handler.
+     */
+    public void performRevokeToken(
+            @NonNull RevokeTokenRequest request,
+            @NonNull RevokeTokenResponseCallback callback) {
+        performRevokeToken(request, NoClientAuthentication.INSTANCE, callback);
+    }
+
+    /**
+     * Sends a request to the authorization service to revoke a token.
+     * The result of this request will be sent to the provided callback handler.
+     */
+    public void performRevokeToken(
+            @NonNull RevokeTokenRequest request,
+            @NonNull ClientAuthentication clientAuthentication,
+            @NonNull RevokeTokenResponseCallback callback) {
+        checkNotDisposed();
+        Logger.debug("Initiating token revocation");
+        new RevokeTokenRequestTask(
+                request,
+                clientAuthentication,
+                mClientConfiguration.getConnectionBuilder(),
+                callback)
+                .execute();
+    }
+
+    /**
      * Disposes state that will not normally be handled by garbage collection. This should be
      * called when the authorization service is no longer required, including when any owning
      * activity is paused or destroyed (i.e. in {@link android.app.Activity#onStop()}).
@@ -858,5 +887,132 @@ public class AuthorizationService {
          */
         void onRegistrationRequestCompleted(@Nullable RegistrationResponse response,
                                             @Nullable AuthorizationException ex);
+    }
+
+    private static class RevokeTokenRequestTask
+            extends AsyncTask<Void, Void, JSONObject> {
+        private RevokeTokenRequest mRequest;
+        private final ClientAuthentication mClientAuthentication;
+        private final ConnectionBuilder mConnectionBuilder;
+        private RevokeTokenResponseCallback mCallback;
+
+        private AuthorizationException mException;
+
+        RevokeTokenRequestTask(RevokeTokenRequest request,
+                               @NonNull ClientAuthentication clientAuthentication,
+                               @NonNull ConnectionBuilder connectionBuilder,
+                               RevokeTokenResponseCallback callback) {
+            mRequest = request;
+            mClientAuthentication = clientAuthentication;
+            mConnectionBuilder = connectionBuilder;
+            mCallback = callback;
+        }
+
+
+        @Override
+        protected JSONObject doInBackground(Void... voids) {
+            InputStream is = null;
+            try {
+                HttpURLConnection conn = mConnectionBuilder.openConnection(
+                        mRequest.configuration.revocationEndpoint);
+                conn.setRequestMethod("POST");
+                conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
+                conn.setDoOutput(true);
+
+                Map<String, String> headers = mClientAuthentication
+                        .getRequestHeaders(mRequest.clientId);
+                if (headers != null) {
+                    for (Map.Entry<String,String> header : headers.entrySet()) {
+                        conn.setRequestProperty(header.getKey(), header.getValue());
+                    }
+                }
+
+                Map<String, String> parameters = mRequest.getRequestParameters();
+                Map<String, String> clientAuthParams = mClientAuthentication
+                        .getRequestParameters(mRequest.clientId);
+                if (clientAuthParams != null) {
+                    parameters.putAll(clientAuthParams);
+                }
+
+                String queryData = UriUtil.formUrlEncode(parameters);
+                conn.setRequestProperty("Content-Length", String.valueOf(queryData.length()));
+                OutputStreamWriter wr = new OutputStreamWriter(conn.getOutputStream());
+
+                wr.write(queryData);
+                wr.flush();
+
+                if (conn.getResponseCode() >= HttpURLConnection.HTTP_MULT_CHOICE) {
+                    is = conn.getErrorStream();
+                    String response = Utils.readInputStream(is);
+                    return new JSONObject(response);
+                }
+                return null;
+            } catch (IOException ex) {
+                Logger.debugWithStack(ex, "Failed to complete revocation request");
+                mException = AuthorizationException.fromTemplate(
+                        GeneralErrors.NETWORK_ERROR, ex);
+            } catch (JSONException ex) {
+                Logger.debugWithStack(ex, "Failed to complete revocation request");
+                mException = AuthorizationException.fromTemplate(
+                        GeneralErrors.JSON_DESERIALIZATION_ERROR, ex);
+            } finally {
+                Utils.closeQuietly(is);
+            }
+            return null;
+        }
+
+        @Override
+        protected void onPostExecute(JSONObject json) {
+            if (mException != null) {
+                mCallback.onRevokeTokenRequestCompleted(null, mException);
+                return;
+            }
+
+            if (json != null && json.has(AuthorizationException.PARAM_ERROR)) {
+                AuthorizationException ex;
+                try {
+                    String error = json.getString(AuthorizationException.PARAM_ERROR);
+                    ex = AuthorizationException.fromOAuthTemplate(
+                            RevokeTokenRequestErrors.byString(error),
+                            error,
+                            json.optString(AuthorizationException.PARAM_ERROR_DESCRIPTION, null),
+                            UriUtil.parseUriIfAvailable(
+                                    json.optString(AuthorizationException.PARAM_ERROR_URI)));
+                } catch (JSONException jsonEx) {
+                    ex = AuthorizationException.fromTemplate(
+                            GeneralErrors.JSON_DESERIALIZATION_ERROR,
+                            jsonEx);
+                }
+                mCallback.onRevokeTokenRequestCompleted(null, ex);
+                return;
+            }
+
+            RevokeTokenResponse response = new RevokeTokenResponse.Builder(mRequest).build();
+            Logger.debug("Token revocation with %s completed",
+                    mRequest.configuration.revocationEndpoint);
+            mCallback.onRevokeTokenRequestCompleted(response, null);
+        }
+    }
+
+    /**
+     * Callback interface for token revocation requests.
+     *
+     * @see AuthorizationService#performRevokeToken
+     */
+    public interface RevokeTokenResponseCallback {
+        /**
+         * Invoked when the request completes successfully or fails.
+         *
+         * Exactly one of `response` or `ex` will be non-null. If `response` is `null`, a failure
+         * occurred during the request. This can happen if an invalid URI was provided, no
+         * connection to the server could be established, or the response JSON was incomplete or
+         * incorrectly formatted.
+         *
+         * @param response the retrieved token revocation response, if successful; `null` otherwise.
+         * @param ex a description of the failure, if one occurred: `null` otherwise.
+         * @see AuthorizationException.RevokeTokenRequestErrors
+         */
+        void onRevokeTokenRequestCompleted(@Nullable RevokeTokenResponse response,
+                                           @Nullable AuthorizationException ex);
     }
 }

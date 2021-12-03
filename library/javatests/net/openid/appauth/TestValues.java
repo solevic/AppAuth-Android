@@ -72,6 +72,7 @@ class TestValues {
         String userInfoEndpoint,
         String registrationEndpoint,
         String endSessionEndpoint,
+        String revocationEndpoint,
         String jwksUri,
         List<String> responseTypesSupported,
         List<String> subjectTypesSupported,
@@ -86,6 +87,7 @@ class TestValues {
             + " \"token_endpoint\": \"" + tokenEndpoint + "\",\n"
             + " \"userinfo_endpoint\": \"" + userInfoEndpoint + "\",\n"
             + " \"end_session_endpoint\": \"" + endSessionEndpoint + "\",\n"
+            + " \"revocation_endpoint\": \"" + revocationEndpoint + "\",\n"
             + " \"registration_endpoint\": \"" + registrationEndpoint + "\",\n"
             + " \"jwks_uri\": \"" + jwksUri + "\",\n"
             + " \"response_types_supported\": " + toJson(responseTypesSupported) + ",\n"
@@ -132,6 +134,11 @@ class TestValues {
             .setPostLogoutRedirectUri(TEST_APP_REDIRECT_URI);
     }
 
+    public static RevokeTokenRequest.Builder getTestRevokeTokenRequestBuilder() {
+        return new RevokeTokenRequest.Builder(getTestServiceConfig(), TEST_CLIENT_ID, TEST_ID_TOKEN)
+                .setTokenTypeHint(RevokeTokenRequest.TOKEN_TYPE_ACCESS);
+    }
+
     public static AuthorizationRequest getTestAuthRequest() {
         return getTestAuthRequestBuilder()
             .setNonce(null)
@@ -141,6 +148,11 @@ class TestValues {
     public static EndSessionRequest getTestEndSessionRequest() {
         return getTestEndSessionRequestBuilder()
             .build();
+    }
+
+    public static RevokeTokenRequest getTestRevokeTokenRequest() {
+        return getTestRevokeTokenRequestBuilder()
+                .build();
     }
 
     public static AuthorizationResponse.Builder getTestAuthResponseBuilder() {

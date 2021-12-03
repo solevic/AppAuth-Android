@@ -39,6 +39,7 @@ public class AuthorizationServiceDiscoveryTest {
     static final String TEST_USERINFO_ENDPOINT = "http://test.openid.com/o/oauth/userinfo";
     static final String TEST_REGISTRATION_ENDPOINT = "http://test.openid.com/o/oauth/register";
     static final String TEST_END_SESSION_ENDPOINT = "http://test.openid.com/o/oauth/logout";
+    static final String TEST_REVOCATION_ENDPOINT = "http://test.openid.com/o/oauth/revoke";
     static final String TEST_JWKS_URI = "http://test.openid.com/o/oauth/jwks";
     static final List<String> TEST_RESPONSE_TYPES_SUPPORTED = Arrays.asList("code", "token");
     static final List<String> TEST_SUBJECT_TYPES_SUPPORTED = Arrays.asList("public");
@@ -55,6 +56,7 @@ public class AuthorizationServiceDiscoveryTest {
         TEST_USERINFO_ENDPOINT,
         TEST_REGISTRATION_ENDPOINT,
         TEST_END_SESSION_ENDPOINT,
+        TEST_REVOCATION_ENDPOINT,
         TEST_JWKS_URI,
         TEST_RESPONSE_TYPES_SUPPORTED,
         TEST_SUBJECT_TYPES_SUPPORTED,
