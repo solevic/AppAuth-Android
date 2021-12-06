@@ -402,6 +402,63 @@ public final class AuthorizationException extends Exception {
     }
 
     /**
+     * Error codes related to failed revoke token requests.
+     *
+     * @see "OAuth 2.0 Token Revocation" (RFC 7009), Section 2.2.1
+     * <https://datatracker.ietf.org/doc/html/rfc7009#section-2.2.1>"
+     */
+    public static final class RevokeTokenRequestErrors {
+        // codes in this group should be between 3000-3999
+
+        /**
+         * An `invalid_request` OAuth2 error response.
+         */
+        public static final AuthorizationException INVALID_REQUEST =
+                tokenEx(3000, "invalid_request");
+
+        /**
+         * An `unsupported_token_type` OAuth2 error response.
+         */
+        public static final AuthorizationException UNSUPPORTED_TOKEN_TYPE =
+                tokenEx(3001, "unsupported_token_type");
+
+        /**
+         * An authorization error occurring on the client rather than the server. For example,
+         * due to client misconfiguration. This error should be treated as unrecoverable.
+         */
+        public static final AuthorizationException CLIENT_ERROR =
+                tokenEx(3002, null);
+
+        /**
+         * Indicates an OAuth error as per RFC 7009, but the error code is not known to the
+         * AppAuth for Android library. It could be a custom error or code, or one from an
+         * OAuth extension. The {@link #error} field provides the exact error string returned by
+         * the server.
+         */
+        public static final AuthorizationException OTHER =
+                tokenEx(3003, null);
+
+        private static final Map<String, AuthorizationException> STRING_TO_EXCEPTION =
+                exceptionMapByString(
+                        INVALID_REQUEST,
+                        UNSUPPORTED_TOKEN_TYPE,
+                        CLIENT_ERROR,
+                        OTHER);
+
+        /**
+         * Returns the matching exception type for the provided OAuth2 error string, or
+         * {@link #OTHER} if unknown.
+         */
+        public static AuthorizationException byString(String error) {
+            AuthorizationException ex = STRING_TO_EXCEPTION.get(error);
+            if (ex != null) {
+                return ex;
+            }
+            return OTHER;
+        }
+    }
+
+    /**
      * Error codes related to failed registration requests.
      */
     public static final class RegistrationRequestErrors {

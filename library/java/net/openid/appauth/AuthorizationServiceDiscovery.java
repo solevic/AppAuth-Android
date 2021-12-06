@@ -54,6 +54,9 @@ public class AuthorizationServiceDiscovery {
     static final UriField END_SESSION_ENDPOINT = uri("end_session_endpoint");
 
     @VisibleForTesting
+    static final UriField REVOCATION_ENDPOINT = uri("revocation_endpoint");
+
+    @VisibleForTesting
     static final UriField USERINFO_ENDPOINT = uri("userinfo_endpoint");
 
     @VisibleForTesting
@@ -266,6 +269,13 @@ public class AuthorizationServiceDiscovery {
      */
     public Uri getEndSessionEndpoint() {
         return get(END_SESSION_ENDPOINT);
+    }
+
+    /**
+     * The OAuth 2 revocation endpoint URI. Not specified test OAuth implementation
+     */
+    public Uri getRevocationEndpoint() {
+        return get(REVOCATION_ENDPOINT);
     }
 
     /**

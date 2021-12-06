@@ -23,6 +23,7 @@ import static net.openid.appauth.AuthorizationServiceDiscoveryTest.TEST_ID_TOKEN
 import static net.openid.appauth.AuthorizationServiceDiscoveryTest.TEST_JWKS_URI;
 import static net.openid.appauth.AuthorizationServiceDiscoveryTest.TEST_REGISTRATION_ENDPOINT;
 import static net.openid.appauth.AuthorizationServiceDiscoveryTest.TEST_RESPONSE_TYPES_SUPPORTED;
+import static net.openid.appauth.AuthorizationServiceDiscoveryTest.TEST_REVOCATION_ENDPOINT;
 import static net.openid.appauth.AuthorizationServiceDiscoveryTest.TEST_SCOPES_SUPPORTED;
 import static net.openid.appauth.AuthorizationServiceDiscoveryTest.TEST_SUBJECT_TYPES_SUPPORTED;
 import static net.openid.appauth.AuthorizationServiceDiscoveryTest.TEST_TOKEN_ENDPOINT;
@@ -463,6 +464,7 @@ public class IdTokenTest {
             TEST_USERINFO_ENDPOINT,
             TEST_REGISTRATION_ENDPOINT,
             TEST_END_SESSION_ENDPOINT,
+            TEST_REVOCATION_ENDPOINT,
             TEST_JWKS_URI,
             TEST_RESPONSE_TYPES_SUPPORTED,
             TEST_SUBJECT_TYPES_SUPPORTED,

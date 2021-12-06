@@ -29,6 +29,7 @@ import androidx.browser.customtabs.CustomTabsServiceConnection;
 
 import net.openid.appauth.AppAuthConfiguration.Builder;
 import net.openid.appauth.AuthorizationException.GeneralErrors;
+import net.openid.appauth.AuthorizationException.RevokeTokenRequestErrors;
 import net.openid.appauth.browser.BrowserDescriptor;
 import net.openid.appauth.browser.Browsers;
 import net.openid.appauth.browser.CustomTabManager;
@@ -78,6 +79,7 @@ import static net.openid.appauth.TestValues.getTestEndSessionRequest;
 import static net.openid.appauth.TestValues.getTestEndSessionRequestBuilder;
 import static net.openid.appauth.TestValues.getTestIdTokenWithNonce;
 import static net.openid.appauth.TestValues.getTestRegistrationRequest;
+import static net.openid.appauth.TestValues.getTestRevokeTokenRequest;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -113,6 +115,11 @@ public class AuthorizationServiceTest {
             + "  \"error_description\": \"invalid_grant description\"\n"
             + "}";
 
+    private static final String UNSUPPORTED_TOKEN_TYPE_RESPONSE_JSON = "{\n"
+            + "  \"error\": \"unsupported_token_type\",\n"
+            + "  \"error_description\": \"unsupported_token_type description\"\n"
+            + "}";
+
     private static final String INVALID_GRANT_NO_DESC_RESPONSE_JSON = "{\n"
             + "  \"error\": \"invalid_grant\"\n"
             + "}";
@@ -122,6 +129,7 @@ public class AuthorizationServiceTest {
     private AutoCloseable mMockitoCloseable;
     private AuthorizationCallback mAuthCallback;
     private RegistrationCallback mRegistrationCallback;
+    private RevokeTokenCallback mRevokeTokenCallback;
     private AuthorizationService mService;
     private OutputStream mOutputStream;
     private BrowserDescriptor mBrowserDescriptor;
@@ -139,6 +147,7 @@ public class AuthorizationServiceTest {
         mMockitoCloseable = MockitoAnnotations.openMocks(this);
         mAuthCallback = new AuthorizationCallback();
         mRegistrationCallback = new RegistrationCallback();
+        mRevokeTokenCallback = new RevokeTokenCallback();
         mBrowserDescriptor = Browsers.Chrome.customTab("46");
         mService = new AuthorizationService(
                 mContext,
@@ -229,6 +238,51 @@ public class AuthorizationServiceTest {
             customTabsIntent);
         Intent intent = captureAuthRequestIntent();
         assertColorMatch(intent, Color.GREEN);
+    }
+
+    @Test
+    public void testRevokeTokenRequest() throws Exception {
+        InputStream is = new ByteArrayInputStream("\n".getBytes());
+        when(mHttpConnection.getInputStream()).thenReturn(is);
+        RevokeTokenRequest request = getTestRevokeTokenRequest();
+        mService.performRevokeToken(request, mRevokeTokenCallback);
+        mPausedExecutorService.runAll();
+        shadowOf(getMainLooper()).idle();
+        assertRevokeTokenResponse(mRevokeTokenCallback.response, request);
+        String postBody = mOutputStream.toString();
+
+        Map<String, String> params = UriUtil.formUrlDecodeUnique(postBody);
+
+        for (Map.Entry<String, String> requestParam : request.getRequestParameters().entrySet()) {
+            assertThat(params).containsEntry(requestParam.getKey(), requestParam.getValue());
+        }
+
+        assertThat(params).containsEntry(TokenRequest.PARAM_CLIENT_ID, request.clientId);
+    }
+
+    @Test
+    public void testRevokeTokenRequest_IoException() throws Exception {
+        Exception ex = new IOException();
+        // revoke token request has no input stream body so use response code to test
+        when(mHttpConnection.getResponseCode()).thenThrow(ex);
+        mService.performRevokeToken(getTestRevokeTokenRequest(), mRevokeTokenCallback);
+        mPausedExecutorService.runAll();
+        shadowOf(getMainLooper()).idle();
+        assertNotNull(mRevokeTokenCallback.error);
+        assertEquals(GeneralErrors.NETWORK_ERROR, mRevokeTokenCallback.error);
+    }
+
+    @Test
+    public void testRevokeTokenRequest_withUnsupportedTokenType() throws Exception {
+        InputStream is = new ByteArrayInputStream(UNSUPPORTED_TOKEN_TYPE_RESPONSE_JSON.getBytes());
+        when(mHttpConnection.getErrorStream()).thenReturn(is);
+        when(mHttpConnection.getResponseCode()).thenReturn(HttpURLConnection.HTTP_BAD_REQUEST);
+        mService.performRevokeToken(getTestRevokeTokenRequest(), mRevokeTokenCallback);
+        mPausedExecutorService.runAll();
+        shadowOf(getMainLooper()).idle();
+        assertNotNull(mRevokeTokenCallback.error);
+        assertThat(mRevokeTokenCallback.error)
+                .isEqualTo(RevokeTokenRequestErrors.UNSUPPORTED_TOKEN_TYPE);
     }
 
     @Test(expected = IllegalStateException.class)
@@ -537,6 +591,12 @@ public class AuthorizationServiceTest {
         assertThat(response.clientSecretExpiresAt).isEqualTo(TEST_CLIENT_SECRET_EXPIRES_AT);
     }
 
+    private void assertRevokeTokenResponse(RevokeTokenResponse response,
+                                           RevokeTokenRequest expectedRequest) {
+        assertThat(response).isNotNull();
+        assertThat(response.request).isEqualTo(expectedRequest);
+    }
+
     private void assertTokenRequestBody(
             String requestBody, Map<String, String> expectedParameters) {
         Uri postBody = new Uri.Builder().encodedQuery(requestBody).build();
@@ -556,6 +616,20 @@ public class AuthorizationServiceTest {
                 @Nullable AuthorizationException ex) {
             assertTrue((tokenResponse == null) ^ (ex == null));
             this.response = tokenResponse;
+            this.error = ex;
+        }
+    }
+
+    private static class RevokeTokenCallback implements
+            AuthorizationService.RevokeTokenResponseCallback {
+        public RevokeTokenResponse response;
+        public AuthorizationException error;
+
+        @Override
+        public void onRevokeTokenRequestCompleted(@Nullable RevokeTokenResponse revokeTokenResponse,
+                                                  @Nullable AuthorizationException ex) {
+            assertTrue((revokeTokenResponse == null) ^ (ex == null));
+            this.response = revokeTokenResponse;
             this.error = ex;
         }
     }
